@@ -37,20 +37,22 @@
 #include "accgyro_mpu6500.h"
 #include "accgyro_spi_mpu6500.h"
 
+// 20 MHz max SPI frequency
+#define MPU6500_MAX_SPI_CLK_HZ 20000000
+
 #define BIT_SLEEP                   0x40
 
-static void mpu6500SpiInit(const busDevice_t *bus) {
-#ifndef USE_DUAL_GYRO
-    IOInit(bus->busdev_u.spi.csnPin, OWNER_MPU_CS, 0);
-    IOConfigGPIO(bus->busdev_u.spi.csnPin, SPI_IO_CS_CFG);
-    IOHi(bus->busdev_u.spi.csnPin);
-#endif
-    spiSetDivisor(bus->busdev_u.spi.instance, SPI_CLOCK_FAST);
+static void mpu6500SpiInit(const extDevice_t *dev)
+{
+    UNUSED(dev);
 }
 
-uint8_t mpu6500SpiDetect(const busDevice_t *bus) {
-    mpu6500SpiInit(bus);
-    const uint8_t whoAmI = spiBusReadRegister(bus, MPU_RA_WHO_AM_I);
+uint8_t mpu6500SpiDetect(const extDevice_t *dev)
+{
+    mpu6500SpiInit(dev);
+
+    const uint8_t whoAmI = spiReadRegMsk(dev, MPU_RA_WHO_AM_I);
+
     uint8_t mpuDetected = MPU_NONE;
     switch (whoAmI) {
     case MPU6500_WHO_AM_I_CONST:
@@ -69,28 +71,41 @@ uint8_t mpu6500SpiDetect(const busDevice_t *bus) {
     case ICM20608G_WHO_AM_I_CONST:
         mpuDetected = ICM_20608_SPI;
         break;
+    case ICM42605_WHO_AM_I_CONST:
+        mpuDetected = ICM_42605_SPI;
+        break;
+    case ICM42688P_WHO_AM_I_CONST:
+        mpuDetected = ICM_42688P_SPI;
+        break;
     default:
         mpuDetected = MPU_NONE;
+        return mpuDetected;
     }
+
     return mpuDetected;
 }
 
-void mpu6500SpiAccInit(accDev_t *acc) {
+void mpu6500SpiAccInit(accDev_t *acc)
+{
     mpu6500AccInit(acc);
 }
 
-void mpu6500SpiGyroInit(gyroDev_t *gyro) {
-    spiSetDivisor(gyro->bus.busdev_u.spi.instance, SPI_CLOCK_SLOW);
-    delayMicroseconds(1);
+void mpu6500SpiGyroInit(gyroDev_t *gyro)
+{
+    extDevice_t *dev = &gyro->dev;
+
     mpu6500GyroInit(gyro);
+
     // Disable Primary I2C Interface
-    spiBusWriteRegister(&gyro->bus, MPU_RA_USER_CTRL, MPU6500_BIT_I2C_IF_DIS);
+    spiWriteReg(dev, MPU_RA_USER_CTRL, MPU6500_BIT_I2C_IF_DIS);
     delay(100);
-    spiSetDivisor(gyro->bus.busdev_u.spi.instance, SPI_CLOCK_FAST);
+
+    spiSetClkDivisor(dev, spiCalculateDivider(MPU6500_MAX_SPI_CLK_HZ));
     delayMicroseconds(1);
 }
 
-bool mpu6500SpiAccDetect(accDev_t *acc) {
+bool mpu6500SpiAccDetect(accDev_t *acc)
+{
     // MPU6500 is used as a equivalent of other accelerometers by some flight controllers
     switch (acc->mpuDetectionResult.sensor) {
     case MPU_65xx_SPI:
@@ -102,28 +117,32 @@ bool mpu6500SpiAccDetect(accDev_t *acc) {
     default:
         return false;
     }
+
     acc->initFn = mpu6500SpiAccInit;
-    acc->readFn = mpuAccRead;
+    acc->readFn = mpuAccReadSPI;
+
     return true;
 }
 
-bool mpu6500SpiGyroDetect(gyroDev_t *gyro) {
+bool mpu6500SpiGyroDetect(gyroDev_t *gyro)
+{
     // MPU6500 is used as a equivalent of other gyros by some flight controllers
     switch (gyro->mpuDetectionResult.sensor) {
     case MPU_65xx_SPI:
     case MPU_9250_SPI:
     case ICM_20608_SPI:
     case ICM_20602_SPI:
-        // 16.4 dps/lsb scalefactor
-        gyro->scale = 1.0f / 16.4f;
+        gyro->scale = GYRO_SCALE_2000DPS;
         break;
     case ICM_20601_SPI:
-        gyro->scale = 1.0f / (gyro->gyro_high_fsr ? 8.2f : 16.4f);
+        gyro->scale = (gyro->gyro_high_fsr ? GYRO_SCALE_4000DPS : GYRO_SCALE_2000DPS);
         break;
     default:
         return false;
     }
+
     gyro->initFn = mpu6500SpiGyroInit;
     gyro->readFn = mpuGyroReadSPI;
+
     return true;
 }

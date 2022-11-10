@@ -5,7 +5,7 @@ OPBL_TARGETS      = $(filter %_OPBL, $(ALT_TARGETS))
 
 VALID_TARGETS   = $(dir $(wildcard $(ROOT)/src/main/target/*/target.mk))
 VALID_TARGETS  := $(subst /,, $(subst ./src/main/target/,, $(VALID_TARGETS)))
-VALID_TARGETS  := $(VALID_TARGETS) $(ALT_TARGETS)
+VALID_TARGETS  := $(VALID_TARGETS) $(ALT_TARGETS
 VALID_TARGETS  := $(sort $(VALID_TARGETS))
 VALID_TARGETS  := $(filter-out $(NOBUILD_TARGETS), $(VALID_TARGETS))
 

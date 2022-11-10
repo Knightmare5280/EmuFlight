@@ -22,10 +22,7 @@
 
 #include "drivers/bus.h"
 
-uint8_t mpu6500SpiDetect(const extDevice_t *dev);
-
-bool mpu6500SpiAccDetect(accDev_t *acc);
-bool mpu6500SpiGyroDetect(gyroDev_t *gyro);
-
-void mpu6500SpiGyroInit(gyroDev_t *gyro);
-void mpu6500SpiAccInit(accDev_t *acc);
+uint8_t bmi270Detect(const extDevice_t *dev);
+bool bmi270SpiAccDetect(accDev_t *acc);
+bool bmi270SpiGyroDetect(gyroDev_t *gyro);
+uint8_t bmi270InterruptStatus(gyroDev_t *gyro);
